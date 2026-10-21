@@ -40,7 +40,7 @@
     --bg:#ffffff; --panel:#ffffff; --border:#c6cbd6;
     --tab-inactive:#e6e8ef; --tab-active:#ffffff; --tab-text:#333333; --tab-hover:#dde1ec;
     --text:#111318; --muted:#5a6070; --link:#1552c4; --accent:#0284c7; --accent-soft:#e6f3fb;
-    --toolbar-bg:#f5f6fa;
+    --toolbar-bg:#f5f6fa; --kw:#1a56db;
     --btn-top:#ffffff; --btn-bottom:#e6e9f0; --btn-hover-bottom:#dce0ea; --btn-text:#1a1f28;
     --btn-shadow-hi:rgba(255,255,255,.9); --btn-shadow-lo:rgba(20,25,35,.12);
     --err-bg:#fdeaea; --err-text:#aa1111; --err-border:#e7b8b8;
@@ -53,7 +53,7 @@
     --bg:#12161d; --panel:#181d26; --border:#333b48;
     --tab-inactive:#1c222c; --tab-active:#181d26; --tab-text:#c7ccd6; --tab-hover:#2a3140;
     --text:#e4e7ee; --muted:#8a92a3; --link:#7aa2f7; --accent:#38bdf8; --accent-soft:#12303f;
-    --toolbar-bg:#1a1f28;
+    --toolbar-bg:#1a1f28; --kw:#6cb2ff;
     --btn-top:#2a3140; --btn-bottom:#1f2531; --btn-hover-bottom:#333c4d; --btn-text:#e4e7ee;
     --btn-shadow-hi:rgba(255,255,255,.06); --btn-shadow-lo:rgba(0,0,0,.4);
     --err-bg:#3a1f1f; --err-text:#ff8f8f; --err-border:#5a2c2c;
@@ -130,6 +130,10 @@
   textarea.code{width:100%;border:none;outline:none;padding:10px 12px;font-family:"Courier New",monospace;font-size:13px;line-height:1.5;color:var(--text);background:var(--panel);flex:1;min-height:340px;resize:vertical;tab-size:2;white-space:pre;overflow:auto;}
   textarea.code.wrapOn{white-space:pre-wrap;word-break:break-word;}
   textarea.code::placeholder{color:var(--muted);}
+  pre.outView{margin:0;flex:1;min-height:340px;overflow:auto;white-space:pre;padding:10px 12px;font-family:"Courier New",monospace;font-size:13px;line-height:1.5;color:var(--text);background:var(--panel);outline:none;tab-size:2;}
+  pre.outView.wrapOn{white-space:pre-wrap;word-break:break-word;}
+  pre.outView:empty::before{content:attr(data-placeholder);color:var(--muted);}
+  .kw{color:var(--kw);font-weight:600;}
 
   .statusLine{flex:none;padding:8px 12px;font-size:12px;border-top:1px solid var(--border);background:var(--toolbar-bg);color:var(--muted);min-height:34px;}
   .statusLine.err{background:var(--err-bg);color:var(--err-text);border-top-color:var(--err-border);}
@@ -270,7 +274,8 @@
                 <a id="fmtCopy" class="plain iconBtn" title="Copy" aria-label="Copy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></a>
               </span>
             </div>
-            <textarea id="fmtOutput" class="code" readonly spellcheck="false" placeholder="The formatted SQL appears here."></textarea>
+            <textarea id="fmtOutput" hidden readonly></textarea>
+            <pre id="fmtView" class="code outView" data-placeholder="The formatted SQL appears here." tabindex="0"></pre>
             <div class="statusLine" id="fmtStatus">Ready.</div>
           </div>
         </div>
@@ -449,15 +454,16 @@
 
   /* ---------- keyword case only (layout untouched) ---------- */
   var KW = {}, FN = {}, TY = {}, DT = {};
-  'select from where and or not in is null like between exists as on join inner left right full outer cross natural using group order by having limit offset union all distinct intersect except insert into values update set delete create alter drop truncate table view index database schema primary foreign references constraint default check unique if then else elseif case when end begin commit rollback transaction with recursive over partition unbounded preceding following asc desc top fetch returning grant revoke to add column rename replace cascade restrict explain declare cursor for while loop do return returns function procedure trigger exec execute call true false any some escape collate lateral window qualify merge matched ilike similar glob regexp rlike overlaps interval cast'.split(' ').forEach(function(w){ KW[w] = 1; });
+  'absolute add all alter and any as asc assertion at authorization begin between both by call cascade cascaded case cast check close collate column commit connect constraint constraints continue corresponding create cross cursor deallocate declare default deferrable deferred delete desc describe distinct do drop else elseif end escape except exception exec execute exists external false fetch for foreign from full go goto grant group having identity immediate in indicator initially inner inout insensitive insert intersect into is isolation join language leading left like limit lateral match merge matched natural not null of offset on only open option or order outer overlaps partial partition preceding precision prepare preserve primary prior privileges procedure range recursive references relative replace restrict returning returns revoke right rollback rows schema scroll select set some sql table temporary then to trailing transaction translate trigger true truncate union unique unknown unbounded update usage using values varying view when whenever where while window with over qualify ilike similar glob regexp rlike top nulls index database explain analyze if loop function return rename'.split(' ').forEach(function(w){ KW[w] = 1; });
   'count sum avg min max coalesce ifnull isnull nvl nullif concat substring substr trim ltrim rtrim upper lower length len round floor ceil ceiling abs now getdate dateadd datediff date_add date_sub date_format extract row_number rank dense_rank lag lead first_value last_value ntile string_agg group_concat listagg array_agg json_extract to_char to_date to_timestamp convert'.split(' ').forEach(function(w){ FN[w] = 1; });
-  'int integer bigint smallint tinyint mediumint varchar nvarchar char nchar decimal numeric float double real boolean bool uuid serial bigserial varbinary binary blob clob jsonb'.split(' ').forEach(function(w){ TY[w] = 1; });
-  'current_date current_time current_timestamp localtime localtimestamp'.split(' ').forEach(function(w){ DT[w] = 1; });
+  'int integer bigint smallint tinyint mediumint varchar nvarchar char nchar character decimal dec numeric float double real boolean bool uuid serial bigserial varbinary binary blob clob jsonb date datetime timestamp'.split(' ').forEach(function(w){ TY[w] = 1; });
+  'current_date current_time current_timestamp localtime localtimestamp current_user session_user system_user'.split(' ').forEach(function(w){ DT[w] = 1; });
 
-  // Changes only the case of SQL keywords (and optionally functions / data types). Strings, quoted names, comments,
-  // numbers, table / column names, aliases, variables and all spacing / line breaks stay exactly as typed.
-  function changeCase(sql, mode, withFuncs){
-    var out = '', i = 0, n = sql.length, changed = 0, prevWord = '';
+  // Walks the SQL once and reports each piece as plain text or as a keyword (or function / data type when asked).
+  // Strings, quoted names, comments, numbers, table / column names, aliases and variables are never keywords.
+  function walkSql(sql, withTypes, withFuncs, emit){
+    var i = 0, n = sql.length, prevWord = '', buf = '';
+    function flush(){ if (buf){ emit(buf, false); buf = ''; } }
     function nextNonSpace(from){ var k = from; while (k < n && /\s/.test(sql.charAt(k))) k++; return sql.charAt(k); }
     while (i < n){
       var c = sql.charAt(i), d = sql.charAt(i + 1);
@@ -468,34 +474,55 @@
           if (sql.charAt(j) === '\\' && q === "'"){ j += 2; continue; }
           j++;
         }
-        out += sql.slice(i, j + 1); i = j + 1; continue;
+        buf += sql.slice(i, j + 1); i = j + 1; continue;
       }
       if (c === '['){
         var k2 = sql.indexOf(']', i + 1);
-        if (k2 > -1 && sql.slice(i, k2).indexOf('\n') < 0){ out += sql.slice(i, k2 + 1); i = k2 + 1; continue; }
+        if (k2 > -1 && sql.slice(i, k2).indexOf('\n') < 0){ buf += sql.slice(i, k2 + 1); i = k2 + 1; continue; }
       }
-      if (c === '-' && d === '-'){ var e1 = sql.indexOf('\n', i); if (e1 < 0) e1 = n; out += sql.slice(i, e1); i = e1; continue; }
-      if (c === '#' && /\s/.test(d || '')){ var e2 = sql.indexOf('\n', i); if (e2 < 0) e2 = n; out += sql.slice(i, e2); i = e2; continue; }
-      if (c === '/' && d === '*'){ var e3 = sql.indexOf('*/', i + 2); e3 = e3 < 0 ? n : e3 + 2; out += sql.slice(i, e3); i = e3; continue; }
-      if (/[0-9]/.test(c)){ var m = /^[0-9][A-Za-z0-9_.]*/.exec(sql.slice(i)); out += m[0]; i += m[0].length; continue; }
+      if (c === '-' && d === '-'){ var e1 = sql.indexOf('\n', i); if (e1 < 0) e1 = n; buf += sql.slice(i, e1); i = e1; continue; }
+      if (c === '#' && /\s/.test(d || '')){ var e2 = sql.indexOf('\n', i); if (e2 < 0) e2 = n; buf += sql.slice(i, e2); i = e2; continue; }
+      if (c === '/' && d === '*'){ var e3 = sql.indexOf('*/', i + 2); e3 = e3 < 0 ? n : e3 + 2; buf += sql.slice(i, e3); i = e3; continue; }
+      if (/[0-9]/.test(c)){ var m = /^[0-9][A-Za-z0-9_.]*/.exec(sql.slice(i)); buf += m[0]; i += m[0].length; continue; }
       if (/[A-Za-z_]/.test(c)){
         var mm = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(sql.slice(i)), w = mm[0], lw = w.toLowerCase();
         var before = i > 0 ? sql.charAt(i - 1) : '', after = nextNonSpace(i + w.length), isName = false;
         if (before === '.' || before === '@' || before === '$' || (before === ':' && sql.charAt(i - 2) !== ':') || after === '.') isName = true;
         var isKw = !isName && (KW[lw] || (lw === 'key' && /^(primary|foreign|unique)$/.test(prevWord)));
-        if (!isKw && !isName && withFuncs) isKw = !!(TY[lw] || DT[lw] || (FN[lw] && after === '('));
-        var rw = w;
-        if (isKw && mode !== 'preserve'){ rw = mode === 'upper' ? w.toUpperCase() : w.toLowerCase(); if (rw !== w) changed++; }
-        out += rw; prevWord = lw; i += w.length; continue;
+        if (!isKw && !isName){ if (withTypes && (TY[lw] || DT[lw])) isKw = true; else if (withFuncs && FN[lw] && after === '(') isKw = true; }
+        if (isKw){ flush(); emit(w, true); } else buf += w;
+        prevWord = lw; i += w.length; continue;
       }
-      out += c; i++;
+      buf += c; i++;
     }
+    flush();
+  }
+
+  // Changes only the case of keywords; everything else (spacing, names, strings, comments) stays as typed.
+  function changeCase(sql, mode, withFuncs){
+    var out = '', changed = 0;
+    walkSql(sql, withFuncs, withFuncs, function(text, isKw){
+      if (isKw && mode !== 'preserve'){
+        var r = mode === 'upper' ? text.toUpperCase() : text.toLowerCase();
+        if (r !== text) changed++;
+        out += r;
+      } else out += text;
+    });
     return {text: out, changed: changed};
+  }
+
+  function escHtml(s){ return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // Coloured view of a query: keywords only (blue); everything else stays in the normal text colour.
+  function highlightSql(sql){
+    var html = '';
+    walkSql(sql, true, false, function(text, isKw){ html += isKw ? '<span class="kw">' + escHtml(text) + '</span>' : escHtml(text); });
+    return html;
   }
 
   /* ---------- Beautify / Minify tab ---------- */
   var act = 'beautify';
-  var fmtInput = $('fmtInput'), fmtOutput = $('fmtOutput'), fmtStatus = $('fmtStatus');
+  var fmtInput = $('fmtInput'), fmtOutput = $('fmtOutput'), fmtView = $('fmtView'), fmtStatus = $('fmtStatus');
+  function setOut(text){ fmtOutput.value = text; fmtView.innerHTML = text ? highlightSql(text) : ''; }
 
   function fmtOptions(){
     return {
@@ -509,7 +536,7 @@
     $('dialectWrap').hidden = act !== 'beautify';
     $('funcsWrap').hidden = act === 'beautify';
     $('fmtOutTitle').textContent = act === 'beautify' ? 'Beautified SQL' : act === 'minify' ? 'Minified SQL' : 'SQL with keyword case';
-    if (!src.trim()){ fmtOutput.value = ''; setStatus(fmtStatus, 'Ready.', ''); return; }
+    if (!src.trim()){ setOut(''); setStatus(fmtStatus, 'Ready.', ''); return; }
     if (!libReady()){ setStatus(fmtStatus, 'The formatter library could not be loaded (check your connection) - Minify still works.', 'warn'); }
     try{
       var res;
@@ -525,7 +552,7 @@
         if (!libReady()) throw new Error('The formatter library is not available.');
         res = beautify(src, fmtOptions());
       }
-      fmtOutput.value = res;
+      setOut(res);
       var before = src.length, after = res.length;
       var stmts = (res.match(/;/g) || []).length;
       var msg = act === 'case' ? caseNote : act === 'minify'
@@ -533,7 +560,7 @@
         : 'Beautified - ' + res.split('\n').length + ' lines' + (stmts ? ', ' + stmts + ' statement' + (stmts === 1 ? '' : 's') : '') + '.';
       setStatus(fmtStatus, msg, 'ok');
     }catch(e){
-      fmtOutput.value = '';
+      setOut('');
       setStatus(fmtStatus, (act === 'beautify' ? 'Could not format - ' : 'Could not change - ') + String(e.message || e).split('\n')[0] + (act === 'beautify' ? ' Try another dialect.' : ''), 'err');
     }
   }
@@ -546,7 +573,7 @@
     runFormat();
   });
   ['fmtDialect','fmtKeyword','fmtIndent','fmtStyle','fmtGap','fmtLogic','fmtDense','fmtFuncs'].forEach(function(id){ $(id).addEventListener('change', runFormat); });
-  $('fmtWrap').addEventListener('change', function(){ var on = this.checked; fmtInput.classList.toggle('wrapOn', on); fmtOutput.classList.toggle('wrapOn', on); });
+  $('fmtWrap').addEventListener('change', function(){ var on = this.checked; fmtInput.classList.toggle('wrapOn', on); fmtView.classList.toggle('wrapOn', on); });
   fmtInput.addEventListener('input', runFormatSoon);
   $('fmtSample').addEventListener('click', function(){ fmtInput.value = SAMPLE; runFormat(); });
   $('fmtClear').addEventListener('click', function(){ fmtInput.value = ''; runFormat(); fmtInput.focus(); });
