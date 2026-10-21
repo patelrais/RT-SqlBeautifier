@@ -134,6 +134,13 @@
   pre.outView.wrapOn{white-space:pre-wrap;word-break:break-word;}
   pre.outView:empty::before{content:attr(data-placeholder);color:var(--muted);}
   .kw{color:var(--kw);font-weight:600;}
+  .editWrap{position:relative;flex:1;display:flex;min-height:340px;background:var(--panel);}
+  .editWrap pre.hlLayer{position:absolute;top:0;right:0;bottom:0;left:0;margin:0;padding:10px 12px;overflow:hidden;pointer-events:none;white-space:pre;font-family:"Courier New",monospace;font-size:13px;line-height:1.5;color:var(--text);tab-size:2;}
+  .editWrap pre.hlLayer.wrapOn{white-space:pre-wrap;word-break:break-word;}
+  .editWrap textarea.code{position:relative;flex:1;background:transparent;color:transparent;caret-color:var(--text);resize:none;min-height:340px;}
+  .editWrap textarea.code::selection{background:rgba(26,86,219,.28);color:transparent;}
+  .editWrap.noHl textarea.code{color:var(--text);}
+  .editWrap.noHl pre.hlLayer{display:none;}
 
   .statusLine{flex:none;padding:8px 12px;font-size:12px;border-top:1px solid var(--border);background:var(--toolbar-bg);color:var(--muted);min-height:34px;}
   .statusLine.err{background:var(--err-bg);color:var(--err-text);border-top-color:var(--err-border);}
@@ -519,9 +526,31 @@
     return html;
   }
 
+  // Colours keywords while you type: a read-only layer with the coloured copy sits behind a textarea whose own text is invisible.
+  function attachHighlight(ta){
+    var wrap = document.createElement('div'), layer = document.createElement('pre');
+    wrap.className = 'editWrap'; layer.className = 'hlLayer'; layer.setAttribute('aria-hidden', 'true');
+    ta.parentNode.insertBefore(wrap, ta); wrap.appendChild(layer); wrap.appendChild(ta);
+    function sync(){ layer.scrollTop = ta.scrollTop; layer.scrollLeft = ta.scrollLeft; }
+    function refresh(){
+      var v = ta.value;
+      if (v.length > 300000){ wrap.classList.add('noHl'); return; }
+      wrap.classList.remove('noHl');
+      layer.innerHTML = highlightSql(v) + '\u200b';
+      layer.style.paddingRight = (12 + ta.offsetWidth - ta.clientWidth) + 'px';
+      layer.style.paddingBottom = (10 + ta.offsetHeight - ta.clientHeight) + 'px';
+      sync();
+    }
+    ta.addEventListener('input', refresh);
+    ta.addEventListener('scroll', sync);
+    window.addEventListener('resize', refresh);
+    return {layer: layer, refresh: refresh};
+  }
+
   /* ---------- Beautify / Minify tab ---------- */
   var act = 'beautify';
   var fmtInput = $('fmtInput'), fmtOutput = $('fmtOutput'), fmtView = $('fmtView'), fmtStatus = $('fmtStatus');
+  var fmtInHl = attachHighlight(fmtInput);
   function setOut(text){ fmtOutput.value = text; fmtView.innerHTML = text ? highlightSql(text) : ''; }
 
   function fmtOptions(){
@@ -532,6 +561,7 @@
   }
   function runFormat(){
     var src = fmtInput.value;
+    fmtInHl.refresh();
     $('beautifyOpts').hidden = act !== 'beautify';
     $('dialectWrap').hidden = act !== 'beautify';
     $('funcsWrap').hidden = act === 'beautify';
@@ -573,7 +603,7 @@
     runFormat();
   });
   ['fmtDialect','fmtKeyword','fmtIndent','fmtStyle','fmtGap','fmtLogic','fmtDense','fmtFuncs'].forEach(function(id){ $(id).addEventListener('change', runFormat); });
-  $('fmtWrap').addEventListener('change', function(){ var on = this.checked; fmtInput.classList.toggle('wrapOn', on); fmtView.classList.toggle('wrapOn', on); });
+  $('fmtWrap').addEventListener('change', function(){ var on = this.checked; fmtInput.classList.toggle('wrapOn', on); fmtInHl.layer.classList.toggle('wrapOn', on); fmtView.classList.toggle('wrapOn', on); fmtInHl.refresh(); });
   fmtInput.addEventListener('input', runFormatSoon);
   $('fmtSample').addEventListener('click', function(){ fmtInput.value = SAMPLE; runFormat(); });
   $('fmtClear').addEventListener('click', function(){ fmtInput.value = ''; runFormat(); fmtInput.focus(); });
@@ -603,6 +633,7 @@
 
   /* ---------- SQL in code tab ---------- */
   var cdInput = $('cdInput'), cdOutput = $('cdOutput'), cdStatus = $('cdStatus');
+  var cdInHl = attachHighlight(cdInput);
   function esc(s, kind){
     if (kind === 'json') return JSON.stringify(s);
     return s;
@@ -627,6 +658,7 @@
   }
   function runCode(){
     var src = cdInput.value;
+    cdInHl.refresh();
     if (!src.trim()){ cdOutput.value = ''; setStatus(cdStatus, 'Ready.', ''); return; }
     var text = src, note = '';
     if ($('cdFormat').checked && libReady()){
